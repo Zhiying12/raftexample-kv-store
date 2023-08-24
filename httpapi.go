@@ -15,8 +15,8 @@
 package main
 
 import (
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -36,7 +36,7 @@ func (h *httpKVAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == "PUT":
 		v, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			log.Printf("Failed to read on PUT (%v)\n", err)
+			log.Infof("Failed to read on PUT (%v)\n", err)
 			http.Error(w, "Failed on PUT", http.StatusBadRequest)
 			return
 		}
@@ -52,14 +52,14 @@ func (h *httpKVAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == "POST":
 		url, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			log.Printf("Failed to read on POST (%v)\n", err)
+			log.Infof("Failed to read on POST (%v)\n", err)
 			http.Error(w, "Failed on POST", http.StatusBadRequest)
 			return
 		}
 
 		nodeId, err := strconv.ParseUint(key[1:], 0, 64)
 		if err != nil {
-			log.Printf("Failed to convert ID for conf change (%v)\n", err)
+			log.Infof("Failed to convert ID for conf change (%v)\n", err)
 			http.Error(w, "Failed on POST", http.StatusBadRequest)
 			return
 		}
@@ -76,7 +76,7 @@ func (h *httpKVAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == "DELETE":
 		nodeId, err := strconv.ParseUint(key[1:], 0, 64)
 		if err != nil {
-			log.Printf("Failed to convert ID for conf change (%v)\n", err)
+			log.Infof("Failed to convert ID for conf change (%v)\n", err)
 			http.Error(w, "Failed on DELETE", http.StatusBadRequest)
 			return
 		}

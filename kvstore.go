@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/json"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"sync"
 	"sync/atomic"
 
@@ -55,7 +55,8 @@ func newKVStore(snapshotter *snap.Snapshotter, proposeC chan<- string, commitC <
 		log.Panic(err)
 	}
 	if snapshot != nil {
-		log.Printf("loading snapshot at term %d and index %d", snapshot.Metadata.Term, snapshot.Metadata.Index)
+		log.Infof("loading snapshot at term %d and index %d",
+			snapshot.Metadata.Term, snapshot.Metadata.Index)
 		if err := s.recoverFromSnapshot(snapshot.Data); err != nil {
 			log.Panic(err)
 		}
@@ -109,7 +110,8 @@ func (s *kvstore) readCommits(commitC <-chan *commit, errorC <-chan error) {
 				log.Panic(err)
 			}
 			if snapshot != nil {
-				log.Printf("loading snapshot at term %d and index %d", snapshot.Metadata.Term, snapshot.Metadata.Index)
+				log.Infof("loading snapshot at term %d and index %d",
+					snapshot.Metadata.Term, snapshot.Metadata.Index)
 				if err := s.recoverFromSnapshot(snapshot.Data); err != nil {
 					log.Panic(err)
 				}
