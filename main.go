@@ -49,7 +49,7 @@ func main() {
 	getSnapshot := func() ([]byte, error) { return kvs.getSnapshot() }
 	commitC, errorC, snapshotterReady := newRaftNode(*id,
 		strings.Split(*cluster, ","), *join, getSnapshot, proposeC,
-		confChangeC, *snapshotCount)
+		confChangeC, *debug, *snapshotCount)
 
 	kvs = newKVStore(<-snapshotterReady, proposeC, commitC, errorC)
 

@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap/zapcore"
 	"net/http"
 	"net/url"
 	"os"
@@ -85,11 +86,16 @@ var defaultSnapshotCount uint64 = 10000
 // commit channel, followed by a nil message (to indicate the channel is
 // current), then new log entries. To shutdown, close proposeC and read errorC.
 func newRaftNode(id int, peers []string, join bool, getSnapshot func() ([]byte, error),
-	proposeC <-chan string, confChangeC <-chan raftpb.ConfChange,
+	proposeC <-chan string, confChangeC <-chan raftpb.ConfChange, debugLevel bool,
 	snapshotCount uint64) (<-chan *commit, <-chan error, <-chan *snap.Snapshotter) {
 
 	commitC := make(chan *commit)
 	errorC := make(chan error)
+
+	atom := zap.NewAtomicLevelAt(zap.ErrorLevel)
+	if debugLevel {
+		atom.SetLevel(zap.InfoLevel)
+	}
 
 	rc := &raftNode{
 		proposeC:    proposeC,
@@ -107,7 +113,9 @@ func newRaftNode(id int, peers []string, join bool, getSnapshot func() ([]byte, 
 		httpstopc:   make(chan struct{}),
 		httpdonec:   make(chan struct{}),
 
-		logger: zap.NewExample(),
+		logger: zap.New(zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
+			zapcore.Lock(os.Stdout),
+			atom)),
 
 		snapshotterReady: make(chan *snap.Snapshotter, 1),
 		// rest of structure populated after WAL replay
@@ -301,6 +309,7 @@ func (rc *raftNode) startRaft() {
 		MaxSizePerMsg:             1024 * 1024,
 		MaxInflightMsgs:           256,
 		MaxUncommittedEntriesSize: 1 << 30,
+		Logger:                    log.StandardLogger(),
 	}
 
 	if oldwal || rc.join {
