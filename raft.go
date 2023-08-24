@@ -17,7 +17,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"net/url"
 	"os"
@@ -84,8 +84,9 @@ var defaultSnapshotCount uint64 = 10000
 // provided the proposal channel. All log entries are replayed over the
 // commit channel, followed by a nil message (to indicate the channel is
 // current), then new log entries. To shutdown, close proposeC and read errorC.
-func newRaftNode(id int, peers []string, join bool, getSnapshot func() ([]byte, error), proposeC <-chan string,
-	confChangeC <-chan raftpb.ConfChange) (<-chan *commit, <-chan error, <-chan *snap.Snapshotter) {
+func newRaftNode(id int, peers []string, join bool, getSnapshot func() ([]byte, error),
+	proposeC <-chan string, confChangeC <-chan raftpb.ConfChange,
+	snapshotCount uint64) (<-chan *commit, <-chan error, <-chan *snap.Snapshotter) {
 
 	commitC := make(chan *commit)
 	errorC := make(chan error)
@@ -101,7 +102,7 @@ func newRaftNode(id int, peers []string, join bool, getSnapshot func() ([]byte, 
 		waldir:      fmt.Sprintf("raftexample-%d", id),
 		snapdir:     fmt.Sprintf("raftexample-%d-snap", id),
 		getSnapshot: getSnapshot,
-		snapCount:   defaultSnapshotCount,
+		snapCount:   snapshotCount,
 		stopc:       make(chan struct{}),
 		httpstopc:   make(chan struct{}),
 		httpdonec:   make(chan struct{}),
@@ -111,6 +112,7 @@ func newRaftNode(id int, peers []string, join bool, getSnapshot func() ([]byte, 
 		snapshotterReady: make(chan *snap.Snapshotter, 1),
 		// rest of structure populated after WAL replay
 	}
+	snapshotCatchUpEntriesN = snapshotCount
 	go rc.startRaft()
 	return commitC, errorC, rc.snapshotterReady
 }
@@ -175,7 +177,8 @@ func (rc *raftNode) publishEntries(ents []raftpb.Entry) (<-chan struct{}, bool) 
 				}
 			case raftpb.ConfChangeRemoveNode:
 				if cc.NodeID == uint64(rc.id) {
-					log.Println("I've been removed from the cluster! Shutting down.")
+					log.Infoln("I've been removed from the cluster! Shutting" +
+						" down.")
 					return nil, false
 				}
 				rc.transport.RemovePeer(types.ID(cc.NodeID))
@@ -233,7 +236,8 @@ func (rc *raftNode) openWAL(snapshot *raftpb.Snapshot) *wal.WAL {
 	if snapshot != nil {
 		walsnap.Index, walsnap.Term = snapshot.Metadata.Index, snapshot.Metadata.Term
 	}
-	log.Printf("loading WAL at term %d and index %d", walsnap.Term, walsnap.Index)
+	log.Infof("loading WAL at term %d and index %d", walsnap.Term,
+		walsnap.Index)
 	w, err := wal.Open(zap.NewExample(), rc.waldir, walsnap)
 	if err != nil {
 		log.Fatalf("raftexample: error loading wal (%v)", err)
@@ -244,7 +248,7 @@ func (rc *raftNode) openWAL(snapshot *raftpb.Snapshot) *wal.WAL {
 
 // replayWAL replays WAL entries into the raft instance.
 func (rc *raftNode) replayWAL() *wal.WAL {
-	log.Printf("replaying WAL of member %d", rc.id)
+	log.Infof("replaying WAL of member %d", rc.id)
 	snapshot := rc.loadSnapshot()
 	w := rc.openWAL(snapshot)
 	_, st, ents, err := w.ReadAll()
@@ -345,8 +349,9 @@ func (rc *raftNode) publishSnapshot(snapshotToSave raftpb.Snapshot) {
 		return
 	}
 
-	log.Printf("publishing snapshot at index %d", rc.snapshotIndex)
-	defer log.Printf("finished publishing snapshot at index %d", rc.snapshotIndex)
+	log.Infof("publishing snapshot at index %d", rc.snapshotIndex)
+	defer log.Infof("finished publishing snapshot at index %d",
+		rc.snapshotIndex)
 
 	if snapshotToSave.Metadata.Index <= rc.appliedIndex {
 		log.Fatalf("snapshot index [%d] should > progress.appliedIndex [%d]", snapshotToSave.Metadata.Index, rc.appliedIndex)
@@ -374,7 +379,8 @@ func (rc *raftNode) maybeTriggerSnapshot(applyDoneC <-chan struct{}) {
 		}
 	}
 
-	log.Printf("start snapshot [applied index: %d | last snapshot index: %d]", rc.appliedIndex, rc.snapshotIndex)
+	log.Infof("start snapshot [applied index: %d | last snapshot index: %d]",
+		rc.appliedIndex, rc.snapshotIndex)
 	data, err := rc.getSnapshot()
 	if err != nil {
 		log.Panic(err)
@@ -395,7 +401,7 @@ func (rc *raftNode) maybeTriggerSnapshot(applyDoneC <-chan struct{}) {
 		panic(err)
 	}
 
-	log.Printf("compacted log at index %d", compactIndex)
+	log.Infof("compacted log at index %d", compactIndex)
 	rc.snapshotIndex = rc.appliedIndex
 }
 

@@ -3,6 +3,7 @@ module raftexample-kv-store
 go 1.19
 
 require (
+	github.com/sirupsen/logrus v1.7.0
 	go.etcd.io/etcd/client/pkg/v3 v3.5.9
 	go.etcd.io/etcd/raft/v3 v3.5.9
 	go.etcd.io/etcd/server/v3 v3.5.9
