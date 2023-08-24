@@ -31,6 +31,7 @@ func main() {
 	join := flag.Bool("join", false, "join an existing cluster")
 	debug := flag.Bool("d", false, "enable debug logging")
 	snapshotCount := flag.Uint64("count", 10000, "snapshot count")
+	baseSnapPath := flag.String("s", "/tmp/", "snapshot path")
 	flag.Parse()
 
 	if *debug {
@@ -49,7 +50,7 @@ func main() {
 	getSnapshot := func() ([]byte, error) { return kvs.getSnapshot() }
 	commitC, errorC, snapshotterReady := newRaftNode(*id,
 		strings.Split(*cluster, ","), *join, getSnapshot, proposeC,
-		confChangeC, *debug, *snapshotCount)
+		confChangeC, *debug, *snapshotCount, *baseSnapPath)
 
 	kvs = newKVStore(<-snapshotterReady, proposeC, commitC, errorC)
 

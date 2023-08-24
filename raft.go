@@ -87,7 +87,7 @@ var defaultSnapshotCount uint64 = 10000
 // current), then new log entries. To shutdown, close proposeC and read errorC.
 func newRaftNode(id int, peers []string, join bool, getSnapshot func() ([]byte, error),
 	proposeC <-chan string, confChangeC <-chan raftpb.ConfChange, debugLevel bool,
-	snapshotCount uint64) (<-chan *commit, <-chan error, <-chan *snap.Snapshotter) {
+	snapshotCount uint64, baseSnapshotPath string) (<-chan *commit, <-chan error, <-chan *snap.Snapshotter) {
 
 	commitC := make(chan *commit)
 	errorC := make(chan error)
@@ -106,7 +106,7 @@ func newRaftNode(id int, peers []string, join bool, getSnapshot func() ([]byte, 
 		peers:       peers,
 		join:        join,
 		waldir:      fmt.Sprintf("/tmp/raftexample-%d", id),
-		snapdir:     fmt.Sprintf("raftexample-%d-snap", id),
+		snapdir:     fmt.Sprintf(baseSnapshotPath+"raftexample-%d-snap", id),
 		getSnapshot: getSnapshot,
 		snapCount:   snapshotCount,
 		stopc:       make(chan struct{}),
